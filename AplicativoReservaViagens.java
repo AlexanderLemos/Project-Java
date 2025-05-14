@@ -55,11 +55,19 @@ public class AplicativoReservaViagens extends JFrame {
     // Tela confirmação
     private JTextArea textoConfirmacao;
 
+    // Tela seleção voos
+    private JPanel painelVooOpcoes;
+    private ButtonGroup grupoVoos;
+
     // Para destacar o destino selecionado
-    private JPanel[] painéisDestinoBoxes;
+    private JPanel[] paineisDestinoBoxes;
     private Color corSelecionado = new Color(30, 144, 255);
     private Color corPadraoFundo = Color.WHITE;
     private Color corPadraoFonte = Color.BLACK;
+
+    // Dados da seleção de voo
+    private String[][] voos; // Cada voo: [codigo, data, horario, companhia]
+    private String vooSelecionadoCodigo = null;
 
     public AplicativoReservaViagens() {
         setTitle("Aplicativo de Reserva de Viagens");
@@ -69,6 +77,7 @@ public class AplicativoReservaViagens extends JFrame {
 
         painelPrincipal.add(criarTelaSelecaoDestino(), "Destino");
         painelPrincipal.add(criarTelaCadastroPassageiro(), "Cadastro");
+        painelPrincipal.add(criarTelaSelecaoVoo(), "SelecaoVoo");
         painelPrincipal.add(criarTelaAssentos(), "Assentos");
         painelPrincipal.add(criarTelaPagamento(), "Pagamento");
         painelPrincipal.add(criarTelaCartaoCredito(), "CartaoCredito");
@@ -89,8 +98,7 @@ public class AplicativoReservaViagens extends JFrame {
 
         JPanel opcoesDestinos = new JPanel(new GridLayout(2, 2, 20, 20));
 
-        // Destinos fixos e suas cores
-        String[] destinos = {"Fortaleza (CE)", "Rio de Janeiro (RJ)", "Guarulhos (SP)", "Pernambuco (PE)"};
+        String[] destinos = {"Fortaleza (CE)", "Rio de Janeiro (RJ)", "Guarulhos (SP)", "Recife (PE)"};
         Color[] coresDeFundo = {
                 new Color(255, 228, 181),
                 new Color(135, 206, 250),
@@ -98,7 +106,7 @@ public class AplicativoReservaViagens extends JFrame {
                 new Color(255, 182, 193)};
         Color[] coresDaFonte = {Color.BLACK, Color.BLACK, Color.BLACK, Color.BLACK};
 
-        painéisDestinoBoxes = new JPanel[destinos.length];
+        paineisDestinoBoxes = new JPanel[destinos.length];
 
         for (int i = 0; i < destinos.length; i++) {
             String destino = destinos[i];
@@ -124,18 +132,16 @@ public class AplicativoReservaViagens extends JFrame {
                 @Override
                 public void mouseClicked(MouseEvent e) {
                     destinoSelecionado = destino;
-                    // Atualizar seleção visual
-                    for (int j = 0; j < painéisDestinoBoxes.length; j++) {
+                    for (int j = 0; j < paineisDestinoBoxes.length; j++) {
                         if (j == index) {
-                            painéisDestinoBoxes[j].setBorder(BorderFactory.createLineBorder(corSelecionado, 4));
-                            painéisDestinoBoxes[j].setBackground(corSelecionado);
-                            JLabel lbl = (JLabel) painéisDestinoBoxes[j].getComponent(0);
+                            paineisDestinoBoxes[j].setBorder(BorderFactory.createLineBorder(corSelecionado, 4));
+                            paineisDestinoBoxes[j].setBackground(corSelecionado);
+                            JLabel lbl = (JLabel) paineisDestinoBoxes[j].getComponent(0);
                             lbl.setForeground(Color.WHITE);
                         } else {
-                            painéisDestinoBoxes[j].setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
-                            // Restaurar bg e fonte originais conforme index
-                            painéisDestinoBoxes[j].setBackground(coresDeFundo[j]);
-                            JLabel lbl = (JLabel) painéisDestinoBoxes[j].getComponent(0);
+                            paineisDestinoBoxes[j].setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
+                            paineisDestinoBoxes[j].setBackground(coresDeFundo[j]);
+                            JLabel lbl = (JLabel) paineisDestinoBoxes[j].getComponent(0);
                             lbl.setForeground(coresDaFonte[j]);
                         }
                     }
@@ -160,7 +166,7 @@ public class AplicativoReservaViagens extends JFrame {
                 }
             });
 
-            painéisDestinoBoxes[i] = box;
+            paineisDestinoBoxes[i] = box;
             opcoesDestinos.add(box);
         }
 
@@ -267,7 +273,8 @@ public class AplicativoReservaViagens extends JFrame {
         btnProximo.addActionListener(e -> {
             if (validarCadastro()) {
                 salvarDadosCadastro();
-                mostrarTela("Assentos");
+                gerarVoosAleatorios();
+                mostrarTela("SelecaoVoo");
             }
         });
         painelBotoes.add(btnProximo);
@@ -367,6 +374,119 @@ public class AplicativoReservaViagens extends JFrame {
         email = txtEmail.getText().trim();
     }
 
+    private void gerarVoosAleatorios() {
+        voos = new String[3][4];
+        Random random = new Random();
+        String[] companhias = {"Azul", "Latam", "Gol"};
+        DateTimeFormatter formatterData = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        for (int i = 0; i < 3; i++) {
+            voos[i][0] = gerarCodigoVoo(5);
+            int anoAtual = LocalDate.now().getYear();
+            int anoVoo = anoAtual + random.nextInt(2027 - anoAtual + 1);
+            int mes = 1 + random.nextInt(12);
+            int dia;
+            switch (mes) {
+                case 2:
+                    boolean bissexto = (anoVoo % 4 == 0 && anoVoo % 100 != 0) || (anoVoo % 400 == 0);
+                    dia = 1 + random.nextInt(bissexto ? 29 : 28);
+                    break;
+                case 4:
+                case 6:
+                case 9:
+                case 11:
+                    dia = 1 + random.nextInt(30);
+                    break;
+                default:
+                    dia = 1 + random.nextInt(31);
+            }
+            LocalDate dataVoo = LocalDate.of(anoVoo, mes, dia);
+            voos[i][1] = dataVoo.format(formatterData);
+
+            int hora = random.nextInt(24);
+            int minuto = random.nextInt(60);
+            voos[i][2] = String.format("%02d:%02d", hora, minuto);
+
+            voos[i][3] = companhias[random.nextInt(companhias.length)];
+        }
+    }
+
+    private String gerarCodigoVoo(int tamanho) {
+        String caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random random = new Random();
+        StringBuilder codigo = new StringBuilder();
+        for (int i = 0; i < tamanho; i++) {
+            codigo.append(caracteres.charAt(random.nextInt(caracteres.length())));
+        }
+        return codigo.toString();
+    }
+
+    private JPanel criarTelaSelecaoVoo() {
+        JPanel panel = new JPanel(new BorderLayout(20, 20));
+        panel.setBorder(new EmptyBorder(20, 50, 20, 50));
+
+        JLabel titulo = new JLabel("Selecione o Voo");
+        titulo.setFont(new Font("Arial", Font.BOLD, 24));
+        titulo.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(titulo, BorderLayout.NORTH);
+
+        painelVooOpcoes = new JPanel(new GridLayout(0, 1, 10, 10)); // Ajustado para número variável de voos
+        grupoVoos = new ButtonGroup();
+
+        panel.add(painelVooOpcoes, BorderLayout.CENTER);
+
+        JPanel botoes = new JPanel();
+
+        JButton btnVoltar = new JButton("Voltar");
+        btnVoltar.setFont(new Font("Arial", Font.BOLD, 16));
+        btnVoltar.addActionListener(e -> mostrarTela("Cadastro"));
+        botoes.add(btnVoltar);
+
+        JButton btnProximo = new JButton("Próximo");
+        btnProximo.setFont(new Font("Arial", Font.BOLD, 16));
+        btnProximo.addActionListener(e -> {
+            if (vooSelecionadoCodigo == null) {
+                JOptionPane.showMessageDialog(this, "Por favor, selecione um voo.", "Erro", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            mostrarTela("Assentos");
+        });
+        botoes.add(btnProximo);
+
+        panel.add(botoes, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private void atualizarTelaSelecaoVoo() {
+        painelVooOpcoes.removeAll();
+        grupoVoos = new ButtonGroup();
+        vooSelecionadoCodigo = null;
+
+        for (int i = 0; i < voos.length; i++) {
+            String codigo = voos[i][0];
+            String data = voos[i][1];
+            String horario = voos[i][2];
+            String companhia = voos[i][3];
+
+            String texto = String.format("<html><div style='padding: 10px; border: 2px solid #1e90ff; border-radius: 8px; background-color: #f0f8ff;'><b>Voo %s</b><br>Data: %s<br>Horário: %s<br>Companhia: %s</div></html>", codigo, data, horario, companhia);
+            JRadioButton rb = new JRadioButton(texto);
+            rb.setFont(new Font("Arial", Font.PLAIN, 16));
+            rb.setOpaque(false);
+            rb.setContentAreaFilled(false);
+            rb.setBorderPainted(false);
+            grupoVoos.add(rb);
+
+            int idx = i;
+            rb.addActionListener(e -> {
+                vooSelecionadoCodigo = voos[idx][0];
+            });
+
+            painelVooOpcoes.add(rb);
+        }
+        painelVooOpcoes.revalidate();
+        painelVooOpcoes.repaint();
+    }
+
     private JPanel criarTelaAssentos() {
         JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -387,7 +507,7 @@ public class AplicativoReservaViagens extends JFrame {
 
         JButton btnVoltar = new JButton("Voltar");
         btnVoltar.setFont(new Font("Arial", Font.BOLD, 16));
-        btnVoltar.addActionListener(e -> mostrarTela("Cadastro"));
+        btnVoltar.addActionListener(e -> mostrarTela("SelecaoVoo"));
         painelBotoes.add(btnVoltar);
 
         JButton btnProximo = new JButton("Próximo");
@@ -422,7 +542,6 @@ public class AplicativoReservaViagens extends JFrame {
             }
             int indice = i;
             botao.addActionListener(e -> {
-                // Deseleciona todos
                 for (JButton b : botoesAssentos) {
                     if (!assentosOcupados[Integer.parseInt(b.getText()) - 1])
                         b.setBackground(Color.CYAN);
@@ -466,32 +585,34 @@ public class AplicativoReservaViagens extends JFrame {
 
         panel.add(opcoesPanel, BorderLayout.CENTER);
 
-        // Eventos radio buttons
-        rbBoleto.addActionListener(e -> {
-            mostrarTela("Confirmacao");
-            metodoPagamento = "Boleto";
-            JOptionPane.showMessageDialog(this, "Boleto enviado para o email " + email, "Boleto enviado", JOptionPane.INFORMATION_MESSAGE);
-            assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
-        });
-
-        rbCartao.addActionListener(e -> {
-            mostrarTela("CartaoCredito");
-        });
-
-        rbPix.addActionListener(e -> {
-            metodoPagamento = "PIX";
-            String chavePix = gerarChavePix();
-            JOptionPane.showMessageDialog(this, "Chave PIX gerada: " + chavePix + "\nPagamento via PIX confirmado!", "PIX", JOptionPane.INFORMATION_MESSAGE);
-            assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
-            mostrarTela("Confirmacao");
-        });
-
         JPanel painelBotoes = new JPanel();
 
         JButton btnVoltar = new JButton("Voltar");
         btnVoltar.setFont(new Font("Arial", Font.BOLD, 16));
         btnVoltar.addActionListener(e -> mostrarTela("Assentos"));
         painelBotoes.add(btnVoltar);
+
+        JButton btnProximo = new JButton("Próximo");
+        btnProximo.setFont(new Font("Arial", Font.BOLD, 16));
+        btnProximo.addActionListener(e -> {
+            if (rbBoleto.isSelected()) {
+                metodoPagamento = "Boleto"; // Atualiza o método de pagamento corretamente aqui
+                JOptionPane.showMessageDialog(this, "Boleto enviado para o email " + email, "Boleto enviado", JOptionPane.INFORMATION_MESSAGE);
+                assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
+                mostrarTela("Confirmacao");
+            } else if (rbCartao.isSelected()) {
+                mostrarTela("CartaoCredito");
+            } else if (rbPix.isSelected()) {
+                metodoPagamento = "PIX"; // Atualiza o método de pagamento corretamente aqui
+                String chavePix = gerarChavePix();
+                JOptionPane.showMessageDialog(this, "Chave PIX gerada: " + chavePix + "\nPagamento via PIX confirmado!", "PIX", JOptionPane.INFORMATION_MESSAGE);
+                assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
+                mostrarTela("Confirmacao");
+            } else {
+                JOptionPane.showMessageDialog(this, "Por favor, selecione um método de pagamento.", "Erro", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        painelBotoes.add(btnProximo);
 
         panel.add(painelBotoes, BorderLayout.PAGE_END);
 
@@ -512,7 +633,6 @@ public class AplicativoReservaViagens extends JFrame {
         gbc.insets = new Insets(8, 8, 8, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Número do Cartão
         gbc.gridx = 0;
         gbc.gridy = 0;
         JLabel lblNumeroCartaoLabel = new JLabel("Número do Cartão (16 dígitos):");
@@ -523,7 +643,6 @@ public class AplicativoReservaViagens extends JFrame {
         txtNumeroCartao = new JTextField(20);
         painelCartaoCreditoDetalhes.add(txtNumeroCartao, gbc);
 
-        // Data de validade
         gbc.gridx = 0;
         gbc.gridy = 1;
         JLabel lblValidadeCartaoLabel = new JLabel("Data de Validade (MM.AAAA):");
@@ -534,7 +653,6 @@ public class AplicativoReservaViagens extends JFrame {
         txtValidadeCartao = new JTextField(10);
         painelCartaoCreditoDetalhes.add(txtValidadeCartao, gbc);
 
-        // CVV
         gbc.gridx = 0;
         gbc.gridy = 2;
         JLabel lblCVVLabel = new JLabel("CVV (3 dígitos):");
@@ -545,14 +663,12 @@ public class AplicativoReservaViagens extends JFrame {
         txtCVV = new JTextField(5);
         painelCartaoCreditoDetalhes.add(txtCVV, gbc);
 
-        // Label erro CVV
         gbc.gridx = 1;
         gbc.gridy = 3;
         lblErroCVV = new JLabel("");
         lblErroCVV.setForeground(Color.RED);
         painelCartaoCreditoDetalhes.add(lblErroCVV, gbc);
 
-        // Live validation CVV
         txtCVV.getDocument().addDocumentListener(new DocumentListener() {
             private void validarCVV() {
                 String cvv = txtCVV.getText();
@@ -618,7 +734,6 @@ public class AplicativoReservaViagens extends JFrame {
             JOptionPane.showMessageDialog(this, "Corrija o campo CVV.", "Erro", JOptionPane.ERROR_MESSAGE);
             return false;
         }
-        // Validar se a data de validade é válida (opcional)
         try {
             String[] partes = validade.split("\\.");
             int mes = Integer.parseInt(partes[0]);
@@ -627,7 +742,6 @@ public class AplicativoReservaViagens extends JFrame {
                 JOptionPane.showMessageDialog(this, "Mês da validade inválido.", "Erro", JOptionPane.ERROR_MESSAGE);
                 return false;
             }
-            // Pode adicionar validação para ano no futuro se desejar
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Data de validade inválida.", "Erro", JOptionPane.ERROR_MESSAGE);
             return false;
@@ -664,16 +778,25 @@ public class AplicativoReservaViagens extends JFrame {
         JScrollPane scroll = new JScrollPane(textoConfirmacao);
         panel.add(scroll, BorderLayout.CENTER);
 
-        JButton btnFinalizar = new JButton("Voltar ao Início");
-        btnFinalizar.setFont(new Font("Arial", Font.BOLD, 18));
-        btnFinalizar.addActionListener(e -> {
+        JPanel painelBotoes = new JPanel();
+
+        JButton btnFazerMaisUmaCompra = new JButton("Fazer mais uma compra");
+        btnFazerMaisUmaCompra.setFont(new Font("Arial", Font.BOLD, 18));
+        btnFazerMaisUmaCompra.addActionListener(e -> {
             resetarDados();
             mostrarTela("Destino");
         });
+        painelBotoes.add(btnFazerMaisUmaCompra);
 
-        JPanel painelBotao = new JPanel();
-        painelBotao.add(btnFinalizar);
-        panel.add(painelBotao, BorderLayout.SOUTH);
+        JButton btnFinalizar = new JButton("Finalizar");
+        btnFinalizar.setFont(new Font("Arial", Font.BOLD, 18));
+        btnFinalizar.addActionListener(e -> {
+            JOptionPane.showMessageDialog(this, "Obrigado por usar nosso aplicativo!\nAté a próxima viagem!", "Finalizado", JOptionPane.INFORMATION_MESSAGE);
+            System.exit(0);
+        });
+        painelBotoes.add(btnFinalizar);
+
+        panel.add(painelBotoes, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -687,20 +810,24 @@ public class AplicativoReservaViagens extends JFrame {
         email = null;
         assentoSelecionado = null;
         metodoPagamento = null;
+        vooSelecionadoCodigo = null;
 
         grupoPagamentos.clearSelection();
 
-        for (int i=0;i<assentosOcupados.length;i++) {
+        for (int i = 0; i < assentosOcupados.length; i++) {
             assentosOcupados[i] = false;
         }
     }
 
     private void mostrarTela(String nome) {
-        if(nome.equals("Confirmacao")) {
+        if (nome.equals("Confirmacao")) {
             montarTextoConfirmacao();
         }
-        if(nome.equals("Assentos")) {
+        if (nome.equals("Assentos")) {
             atualizarAssentos();
+        }
+        if (nome.equals("SelecaoVoo")) {
+            atualizarTelaSelecaoVoo();
         }
         cardLayout.show(painelPrincipal, nome);
     }
@@ -713,6 +840,7 @@ public class AplicativoReservaViagens extends JFrame {
         sb.append("CPF: ").append(cpf).append("\n");
         sb.append("Data de Nascimento: ").append(dataNascimento).append(" (Idade: ").append(idade).append(" anos)\n");
         sb.append("Email: ").append(email).append("\n");
+        sb.append("Voo: ").append(vooSelecionadoCodigo != null ? vooSelecionadoCodigo : "N/A").append("\n");
         sb.append("Assento: ").append(assentoSelecionado).append("\n");
         sb.append("Método de Pagamento: ").append(metodoPagamento).append("\n\n");
         sb.append("Boa viagem!");
@@ -726,6 +854,5 @@ public class AplicativoReservaViagens extends JFrame {
             app.setVisible(true);
         });
     }
-
 }
 
