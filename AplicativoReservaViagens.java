@@ -66,8 +66,10 @@ public class AplicativoReservaViagens extends JFrame {
     private Color corPadraoFonte = Color.BLACK;
 
     // Dados da seleção de voo
-    private String[][] voos; // Cada voo: [codigo, data, horario, companhia]
+    // Inclui preço como o quinto elemento em cada voo
+    private String[][] voos; // Cada voo: [codigo, data, horario, companhia, preco, conexoes]
     private String vooSelecionadoCodigo = null;
+    private double precoVooSelecionado = 0.0; // Armazena o preço do voo selecionado
 
     public AplicativoReservaViagens() {
         setTitle("Aplicativo de Reserva de Viagens");
@@ -100,10 +102,11 @@ public class AplicativoReservaViagens extends JFrame {
 
         String[] destinos = {"Fortaleza (CE)", "Rio de Janeiro (RJ)", "Guarulhos (SP)", "Recife (PE)"};
         Color[] coresDeFundo = {
-                new Color(255, 228, 181),
-                new Color(135, 206, 250),
-                new Color(152, 251, 152),
-                new Color(255, 182, 193)};
+            new Color(255, 228, 181),
+            new Color(135, 206, 250),
+            new Color(152, 251, 152),
+            new Color(255, 182, 193)
+        };
         Color[] coresDaFonte = {Color.BLACK, Color.BLACK, Color.BLACK, Color.BLACK};
 
         paineisDestinoBoxes = new JPanel[destinos.length];
@@ -375,10 +378,14 @@ public class AplicativoReservaViagens extends JFrame {
     }
 
     private void gerarVoosAleatorios() {
-        voos = new String[3][4];
+        voos = new String[3][6]; // Altere para 6 colunas (inclui preço e conexões)
         Random random = new Random();
         String[] companhias = {"Azul", "Latam", "Gol"};
         DateTimeFormatter formatterData = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+
+        // Definindo destinos para conexões
+        String[] destinosConexoes = {"São Paulo (SP)", "Belo Horizonte (MG)", "Salvador (BA)", "Curitiba (PR)", "Manaus (AM)"};
+
         for (int i = 0; i < 3; i++) {
             voos[i][0] = gerarCodigoVoo(5);
             int anoAtual = LocalDate.now().getYear();
@@ -406,7 +413,35 @@ public class AplicativoReservaViagens extends JFrame {
             int minuto = random.nextInt(60);
             voos[i][2] = String.format("%02d:%02d", hora, minuto);
 
-            voos[i][3] = companhias[random.nextInt(companhias.length)];
+            voos[i][3] = companhias[i]; // associação fixa: i=0 Azul, i=1 Latam, i=2 Gol
+
+            // Definir preço conforme companhia
+            double preco;
+            String conexoes = "";
+            switch (voos[i][3]) {
+                case "Azul":
+                    preco = 1300 + random.nextDouble() * 200; // R$1300 a 1500 (mais caro)
+                    conexoes = "Voo Direto";
+                    break;
+                case "Latam":
+                    preco = 1050 + random.nextDouble() * 150; // R$1050 a 1200 (médio)
+                    conexoes = "1 Conexão: " + destinosConexoes[random.nextInt(destinosConexoes.length)];
+                    break;
+                case "Gol":
+                    preco = 900 + random.nextDouble() * 100; // R$900 a 1000 (mais barato)
+                    // Garantir que as duas conexões sejam distintas
+                    int primeiroIndice = random.nextInt(destinosConexoes.length);
+                    int segundoIndice;
+                    do {
+                        segundoIndice = random.nextInt(destinosConexoes.length);
+                    } while (segundoIndice == primeiroIndice);
+                    conexoes = "2 Conexões: " + destinosConexoes[primeiroIndice] + " e " + destinosConexoes[segundoIndice];
+                    break;
+                default:
+                    preco = 1000;
+            }
+            voos[i][4] = String.format("%.2f", preco);
+            voos[i][5] = conexoes; // Adiciona as conexões
         }
     }
 
@@ -461,14 +496,20 @@ public class AplicativoReservaViagens extends JFrame {
         painelVooOpcoes.removeAll();
         grupoVoos = new ButtonGroup();
         vooSelecionadoCodigo = null;
+        precoVooSelecionado = 0.0;
 
         for (int i = 0; i < voos.length; i++) {
             String codigo = voos[i][0];
             String data = voos[i][1];
             String horario = voos[i][2];
             String companhia = voos[i][3];
+            String preco = voos[i][4];
+            String conexoes = voos[i][5];
 
-            String texto = String.format("<html><div style='padding: 10px; border: 2px solid #1e90ff; border-radius: 8px; background-color: #f0f8ff;'><b>Voo %s</b><br>Data: %s<br>Horário: %s<br>Companhia: %s</div></html>", codigo, data, horario, companhia);
+            String texto = String.format(
+                    "<html><div style='padding: 10px; border: 2px solid #1e90ff; border-radius: 8px; background-color: #f0f8ff;'>"
+                            + "<b>Voo %s</b><br>Data: %s<br>Horário: %s<br>Companhia: %s<br><b>Preço: R$ %s</b><br><i>%s</i></div></html>",
+                    codigo, data, horario, companhia, preco, conexoes);
             JRadioButton rb = new JRadioButton(texto);
             rb.setFont(new Font("Arial", Font.PLAIN, 16));
             rb.setOpaque(false);
@@ -479,6 +520,8 @@ public class AplicativoReservaViagens extends JFrame {
             int idx = i;
             rb.addActionListener(e -> {
                 vooSelecionadoCodigo = voos[idx][0];
+                // Atualizando o preço diretamente do array para garantir precisão
+                precoVooSelecionado = Double.parseDouble(voos[idx][4]);
             });
 
             painelVooOpcoes.add(rb);
@@ -596,14 +639,14 @@ public class AplicativoReservaViagens extends JFrame {
         btnProximo.setFont(new Font("Arial", Font.BOLD, 16));
         btnProximo.addActionListener(e -> {
             if (rbBoleto.isSelected()) {
-                metodoPagamento = "Boleto"; // Atualiza o método de pagamento corretamente aqui
+                metodoPagamento = "Boleto";
                 JOptionPane.showMessageDialog(this, "Boleto enviado para o email " + email, "Boleto enviado", JOptionPane.INFORMATION_MESSAGE);
                 assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
                 mostrarTela("Confirmacao");
             } else if (rbCartao.isSelected()) {
                 mostrarTela("CartaoCredito");
             } else if (rbPix.isSelected()) {
-                metodoPagamento = "PIX"; // Atualiza o método de pagamento corretamente aqui
+                metodoPagamento = "PIX";
                 String chavePix = gerarChavePix();
                 JOptionPane.showMessageDialog(this, "Chave PIX gerada: " + chavePix + "\nPagamento via PIX confirmado!", "PIX", JOptionPane.INFORMATION_MESSAGE);
                 assentosOcupados[Integer.parseInt(assentoSelecionado) - 1] = true;
@@ -811,6 +854,14 @@ public class AplicativoReservaViagens extends JFrame {
         assentoSelecionado = null;
         metodoPagamento = null;
         vooSelecionadoCodigo = null;
+        precoVooSelecionado = 0.0;
+
+        // Limpar os campos de entrada
+        if (txtNome != null) txtNome.setText("");
+        if (txtCPF != null) txtCPF.setText("");
+        if (txtDataNascimento != null) txtDataNascimento.setText("");
+        if (lblIdade != null) lblIdade.setText("");
+        if (txtEmail != null) txtEmail.setText("");
 
         grupoPagamentos.clearSelection();
 
@@ -841,6 +892,22 @@ public class AplicativoReservaViagens extends JFrame {
         sb.append("Data de Nascimento: ").append(dataNascimento).append(" (Idade: ").append(idade).append(" anos)\n");
         sb.append("Email: ").append(email).append("\n");
         sb.append("Voo: ").append(vooSelecionadoCodigo != null ? vooSelecionadoCodigo : "N/A").append("\n");
+
+        // Buscar conexões e preço do voo selecionado do array para garantir exibição correta
+        String conexoes = "N/A";
+        String precoStr = "0.00";
+        if (voos != null && vooSelecionadoCodigo != null) {
+            for (String[] voo : voos) {
+                if (voo[0].equals(vooSelecionadoCodigo)) {
+                    conexoes = voo.length > 5 ? voo[5] : "N/A";
+                    precoStr = voo.length > 4 ? voo[4] : "0.00";
+                    break;
+                }
+            }
+        }
+        sb.append("Conexões: ").append(conexoes).append("\n");
+
+        sb.append(String.format("Preço do Voo: R$ %s\n", precoStr));
         sb.append("Assento: ").append(assentoSelecionado).append("\n");
         sb.append("Método de Pagamento: ").append(metodoPagamento).append("\n\n");
         sb.append("Boa viagem!");
@@ -855,4 +922,3 @@ public class AplicativoReservaViagens extends JFrame {
         });
     }
 }
-
